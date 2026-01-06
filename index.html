@@ -1,0 +1,66 @@
+import { initializeApp } from "firebase/app";
+import { getAuth, signInAnonymously } from "firebase/auth";
+import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
+import CryptoJS from "crypto-js";
+
+// 1. FILL IN YOUR DETAILS FROM FIREBASE CONSOLE
+const firebaseConfig = {
+  apiKey: "",
+  authDomain: "",
+  projectId: "",
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: ""
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = 'my-vault-app-001';
+
+// Initialize Auth
+signInAnonymously(auth).then(() => {
+    document.getElementById('status').innerText = "System Online";
+}).catch(err => {
+    document.getElementById('status').innerText = "Connection Error";
+});
+
+// Verification Function
+document.getElementById('verifyBtn').onclick = async () => {
+    const id = document.getElementById('searchId').value.trim();
+    if (!id) return;
+
+    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'credentials', id);
+    const snap = await getDoc(docRef);
+
+    if (snap.exists()) {
+        const data = snap.data();
+        document.getElementById('res-name').innerText = data.name;
+        document.getElementById('res-major').innerText = data.major;
+        document.getElementById('res-hash').innerText = data.hash;
+        document.getElementById('result').classList.remove('hidden');
+    } else {
+        alert("No record found for this ID.");
+    }
+};
+
+// Issuance Function
+document.getElementById('issueBtn').onclick = async () => {
+    const name = document.getElementById('form-name').value;
+    const id = document.getElementById('form-id').value;
+    const major = document.getElementById('form-major').value;
+
+    if (!name || !id) return alert("Missing fields");
+
+    const hash = CryptoJS.SHA256(id + name + Date.now()).toString();
+    
+    try {
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'credentials', id), {
+            name, id, major, hash, timestamp: Date.now()
+        });
+        alert("Credential successfully written to ledger!");
+    } catch (e) {
+        console.error(e);
+        alert("Failed to issue credential.");
+    }
+};
